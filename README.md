@@ -22,6 +22,7 @@ A fast, comprehensive tool for mapping and inventorying AWS resources across 140
 - **Beautiful HTML Reports**: Interactive reports with search, filters, dark mode, and export
 - **Multiple Outputs**: JSON, CSV, and HTML formats
 - **Fast**: Parallel execution with 40 workers (~2 minutes for typical accounts)
+- **SSO Support**: Works with AWS SSO/Identity Center credentials
 
 ## Installation
 
