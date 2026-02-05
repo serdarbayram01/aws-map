@@ -32,6 +32,7 @@ dependencies = [
     "boto3>=1.26.0",
     "click>=8.0.0",
     "pyyaml>=6.0.0",
+    "awscrt>=0.16.0",  # Required for SSO credential provider
 ]
 
 [project.urls]
