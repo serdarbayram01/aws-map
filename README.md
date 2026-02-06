@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="AWS Inventory Tool" width="800">
+  <img src="assets/logo.png" alt="AWS Inventory Tool" style="max-width: 100%; height: auto;">
 </p>
 
 <p align="center">
