@@ -58,6 +58,26 @@ def collect_iam_resources(session: boto3.Session, region: Optional[str], account
                 except Exception:
                     pass
 
+                # Get attached policies
+                attached_policies = []
+                try:
+                    ap_paginator = iam.get_paginator('list_attached_user_policies')
+                    for ap_page in ap_paginator.paginate(UserName=user_name):
+                        for pol in ap_page.get('AttachedPolicies', []):
+                            attached_policies.append(pol['PolicyArn'])
+                except Exception:
+                    pass
+
+                # Get group memberships
+                groups = []
+                try:
+                    grp_paginator = iam.get_paginator('list_groups_for_user')
+                    for grp_page in grp_paginator.paginate(UserName=user_name):
+                        for grp in grp_page.get('Groups', []):
+                            groups.append(grp['GroupName'])
+                except Exception:
+                    pass
+
                 resources.append({
                     'service': 'iam',
                     'type': 'user',
@@ -71,6 +91,8 @@ def collect_iam_resources(session: boto3.Session, region: Optional[str], account
                         'password_last_used': str(user.get('PasswordLastUsed', '')),
                         'mfa_enabled': mfa_enabled,
                         'access_keys_count': len(access_keys),
+                        'attached_policies': attached_policies,
+                        'groups': groups,
                     },
                     'tags': tags
                 })
@@ -82,16 +104,29 @@ def collect_iam_resources(session: boto3.Session, region: Optional[str], account
         paginator = iam.get_paginator('list_groups')
         for page in paginator.paginate():
             for group in page.get('Groups', []):
+                group_name = group['GroupName']
+
+                # Get attached policies
+                attached_policies = []
+                try:
+                    ap_paginator = iam.get_paginator('list_attached_group_policies')
+                    for ap_page in ap_paginator.paginate(GroupName=group_name):
+                        for pol in ap_page.get('AttachedPolicies', []):
+                            attached_policies.append(pol['PolicyArn'])
+                except Exception:
+                    pass
+
                 resources.append({
                     'service': 'iam',
                     'type': 'group',
                     'id': group.get('GroupId'),
                     'arn': group['Arn'],
-                    'name': group['GroupName'],
+                    'name': group_name,
                     'region': 'global',
                     'details': {
                         'path': group.get('Path'),
                         'create_date': str(group.get('CreateDate', '')),
+                        'attached_policies': attached_policies,
                     },
                     'tags': {}
                 })
@@ -114,6 +149,19 @@ def collect_iam_resources(session: boto3.Session, region: Optional[str], account
                 except Exception:
                     pass
 
+                # Get attached policies
+                attached_policies = []
+                try:
+                    ap_paginator = iam.get_paginator('list_attached_role_policies')
+                    for ap_page in ap_paginator.paginate(RoleName=role_name):
+                        for pol in ap_page.get('AttachedPolicies', []):
+                            attached_policies.append(pol['PolicyArn'])
+                except Exception:
+                    pass
+
+                # Trust policy (AssumeRolePolicyDocument) is returned by list_roles
+                trust_policy = role.get('AssumeRolePolicyDocument', {})
+
                 resources.append({
                     'service': 'iam',
                     'type': 'role',
@@ -126,6 +174,8 @@ def collect_iam_resources(session: boto3.Session, region: Optional[str], account
                         'create_date': str(role.get('CreateDate', '')),
                         'max_session_duration': role.get('MaxSessionDuration'),
                         'description': role.get('Description'),
+                        'attached_policies': attached_policies,
+                        'trust_policy': trust_policy,
                     },
                     'tags': tags
                 })

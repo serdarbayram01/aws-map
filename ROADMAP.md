@@ -1,12 +1,12 @@
 # Roadmap
 
-We currently cover **146 AWS services**. Below are the **91 services** we still need to add: **67 new collectors** and **24 extensions** to existing collectors.
+We currently cover **150 AWS services**. Below are the **86 services** we still need to add: **64 new collectors** and **22 extensions** to existing collectors.
 
 This list was built by comparing all **417 services available in boto3** against what awsmap already covers, then filtering out deprecated/sunset services and data-plane-only APIs that don't have inventoriable resources.
 
 To contribute: pick a service, write a collector in `src/aws_inventory/collectors/`, and open a PR.
 
-## New collectors (67)
+## New collectors (64)
 
 - **aiops** — AI Operations
 - **appfabric** — App bundles, ingestions
@@ -21,10 +21,8 @@ To contribute: pick a service, write a collector in `src/aws_inventory/collector
 - **controltower** — Landing zones, enabled controls
 - **databrew** — Glue DataBrew datasets, projects, recipes, jobs
 - **dataexchange** — Data sets, revisions
-- **datazone** — Domains, projects, environments
 - **deadline** — Deadline Cloud farms, queues, fleets
 - **drs** — Elastic Disaster Recovery
-- **dsql** — Aurora DSQL clusters
 - **entityresolution** — Matching workflows, schema mappings
 - **evs** — Elastic VMware Service environments
 - **gameliftstreams** — GameLift Streams stream groups
@@ -70,17 +68,15 @@ To contribute: pick a service, write a collector in `src/aws_inventory/collector
 - **ssm-quicksetup** — Quick Setup configurations
 - **ssm-sap** — SAP applications
 - **supplychain** — Supply Chain instances
-- **timestream-influxdb** — Timestream for InfluxDB instances
 - **tnb** — Telco Network Builder packages, networks
 - **verifiedpermissions** — Policy stores, policies
 - **wellarchitected** — Workloads, lenses, reviews
 - **wickr** — Wickr networks
 - **workmail** — Organizations, users, groups
 
-## Extensions to existing collectors (24)
+## Extensions to existing collectors (22)
 
 Extend `bedrock.py`:
-- **bedrock-agent** — Agents, knowledge bases, data sources
 - **bedrock-data-automation** — Data automation projects
 
 Extend `cleanrooms.py`:
@@ -121,7 +117,6 @@ Extend `route53resolver.py`:
 Extend `s3.py`:
 - **s3control** — Access points, Storage Lens
 - **s3outposts** — S3 on Outposts endpoints
-- **s3tables** — S3 Tables table buckets
 
 Extend `workspaces.py`:
 - **workspaces-instances** — WorkSpaces Instances

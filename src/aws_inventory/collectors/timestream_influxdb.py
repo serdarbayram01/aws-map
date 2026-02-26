@@ -74,7 +74,7 @@ def collect_timestream_influxdb_resources(session: boto3.Session, region: Option
 
                 resources.append({
                     'service': 'timestream-influxdb',
-                    'type': 'db_instance',
+                    'type': 'db-instance',
                     'id': instance_id,
                     'arn': instance_arn,
                     'name': instance_name,
@@ -108,7 +108,7 @@ def collect_timestream_influxdb_resources(session: boto3.Session, region: Option
 
                 resources.append({
                     'service': 'timestream-influxdb',
-                    'type': 'db_parameter_group',
+                    'type': 'db-parameter-group',
                     'id': group_id,
                     'arn': group_arn,
                     'name': group_name,

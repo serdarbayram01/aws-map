@@ -6,9 +6,11 @@ import time
 import importlib
 import threading
 import concurrent.futures
+from difflib import get_close_matches
 from typing import List, Dict, Any, Optional, Callable
 
 from aws_inventory.auth import get_account_id, get_enabled_regions
+from aws_inventory.collectors.s3 import collect_s3_resources
 
 
 # Global services grouped by control plane region
@@ -57,7 +59,6 @@ def validate_services(services: List[str]) -> None:
     Raises:
         ValueError: If any service name is unknown
     """
-    from difflib import get_close_matches
     available = set(get_available_services())
     unknown = [s for s in services if s.lower() not in available]
     if unknown:
@@ -244,13 +245,11 @@ def collect_s3_with_region_filter(
     Returns:
         Tuple of (resources list, elapsed time)
     """
-    from aws_inventory.collectors.s3 import collect_s3_resources
-
     start = time.time()
     try:
-        resources = collect_s3_resources(session, None, account_id)
+        resources = collect_s3_resources(session, None, account_id, filter_regions=filter_regions)
 
-        # Filter by region if specified
+        # Filter buckets by region if specified
         if filter_regions:
             resources = [r for r in resources if r.get('region') in filter_regions]
 
@@ -297,7 +296,7 @@ def collect_all(
     session,
     services: Optional[List[str]] = None,
     regions: Optional[List[str]] = None,
-    max_workers: int = 20,
+    max_workers: int = 40,
     progress_callback: Optional[Callable[[str, str], None]] = None,
     show_timings: bool = False,
     include_global: bool = False
@@ -329,7 +328,6 @@ def collect_all(
     # Determine services to collect
     if services:
         service_list = [s.lower() for s in services]
-        validate_services(service_list)
     else:
         service_list = get_available_services()
 
@@ -342,7 +340,6 @@ def collect_all(
         enabled = get_enabled_regions(session)
         unknown_regions = [r for r in region_list if r not in enabled]
         if unknown_regions:
-            from difflib import get_close_matches
             msgs = []
             for r in unknown_regions:
                 matches = get_close_matches(r, enabled, n=3, cutoff=0.5)

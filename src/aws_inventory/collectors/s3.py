@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Optional
 from aws_inventory.auth import get_enabled_regions
 
 
-def collect_s3_resources(session: boto3.Session, region: Optional[str], account_id: str) -> List[Dict[str, Any]]:
+def collect_s3_resources(session: boto3.Session, region: Optional[str], account_id: str, filter_regions: Optional[List[str]] = None) -> List[Dict[str, Any]]:
     """
     Collect S3 buckets. S3 is a global service but buckets exist in regions.
 
@@ -16,6 +16,7 @@ def collect_s3_resources(session: boto3.Session, region: Optional[str], account_
         session: boto3.Session to use
         region: Not used for S3 (global service)
         account_id: AWS account ID
+        filter_regions: Optional list of regions to limit S3 Tables collection
 
     Returns:
         List of resource dictionaries
@@ -101,9 +102,9 @@ def collect_s3_resources(session: boto3.Session, region: Optional[str], account_
             'tags': tags
         })
 
-    # S3 Tables - regional service, iterate over all enabled regions
+    # S3 Tables - regional service, use filter_regions if provided
     try:
-        table_regions = get_enabled_regions(session)
+        table_regions = filter_regions if filter_regions else get_enabled_regions(session)
     except Exception:
         table_regions = []
 

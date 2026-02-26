@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 LABEL maintainer="Tarek CHEIKH <tarek@tocconsulting.fr>"
 LABEL description="A fast, comprehensive tool for mapping and inventorying AWS resources across 150+ services"
-LABEL version="1.4.0"
+LABEL version="1.5.0"
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -18,8 +18,8 @@ COPY src/ ./src/
 # Install the package
 RUN pip install --no-cache-dir .
 
-# Create output directory
-RUN mkdir -p /app/output
+# Create output and data directories
+RUN mkdir -p /app/output /root/.awsmap
 
 # Default entrypoint
 ENTRYPOINT ["awsmap"]
