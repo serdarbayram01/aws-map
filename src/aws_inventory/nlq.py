@@ -425,22 +425,13 @@ def _normalize_type(rtype, service):
 # 7. Latest-scan WHERE clause
 # ---------------------------------------------------------------------------
 
-_LATEST_SCAN = (
-    "scan_id IN (SELECT scan_id FROM scans s "
-    "WHERE s.timestamp = (SELECT MAX(s2.timestamp) FROM scans s2 "
-    "WHERE s2.account_id = s.account_id))"
-)
+_LATEST_SCAN = "is_current=1"
 
 
 def _scan_where(account_id=None):
-    """Build the latest-scan subquery, optionally scoped to one account."""
+    """Build the current-resources filter, optionally scoped to one account."""
     if account_id:
-        return (
-            f"scan_id IN (SELECT scan_id FROM scans s "
-            f"WHERE s.account_id='{account_id}' AND s.timestamp = "
-            f"(SELECT MAX(s2.timestamp) FROM scans s2 "
-            f"WHERE s2.account_id = s.account_id))"
-        )
+        return f"is_current=1 AND account_id='{account_id}'"
     return _LATEST_SCAN
 
 
@@ -2286,7 +2277,7 @@ def _extract_numeric_filters(q: str, qw: set, intent: dict) -> None:
             if re.search(rf'\b(?:not|without)\s+(?:using\s+)?{re.escape(value)}\s+{field}\b', q):
                 continue
             # Skip ordering/grouping keywords and digit-only values
-            if value not in ("by", "sorted", "ordered") and not value.isdigit():
+            if value not in ("by", "sorted", "ordered", "and", "or", "the", "their", "show", "with") and not value.isdigit():
                 # Skip if filter already exists for this field (avoid duplicates)
                 field_path = f"$.{field}"
                 if not any(f.get("field") == field_path for f in intent.get("filters", [])):
@@ -2649,42 +2640,55 @@ def _extract_select_fields(q: str, qw: set, intent: dict) -> None:
         if "$.attached_policies" not in intent["select_fields"]:
             intent["select_fields"].append("$.attached_policies")
 
-    # Generic "and show X" pattern (must have "and" to avoid initial "show me")
-    # E.g., "sorted by memory and show memory" → add memory to SELECT
-    # Also handles possessive pronouns: "show their type" → "show type"
-    show_match = re.search(r'\band\s+show\s+(?:their|its)?\s*([a-z_]+)(?:\s|$)', q)
+    # Generic "show X" / "show their X and Y" pattern
+    # Captures multiple fields separated by "and"
+    # E.g., "show me their name and runtime" → ["name", "runtime"]
+    # E.g., "and show memory" → ["memory"]
+    show_match = re.search(
+        r'\b(?:and\s+)?show\s+(?:me\s+)?(?:their|its|the)?\s*'
+        r'([a-z_]+(?:\s+and\s+[a-z_]+)*)\s*$', q)
     if show_match:
-        field_name = show_match.group(1)
-        # Skip "show them", "show all", etc.
-        if field_name in ("them", "me", "all", "the", "it", "list"):
-            return
+        raw_fields = re.split(r'\s+and\s+', show_match.group(1))
         # Map common field names to JSON paths (service-aware for "type")
         field_map = {
             "memory": "$.memory_size",
             "runtime": "$.runtime",
+            "runtimes": "$.runtime",
             "timeout": "$.timeout",
+            "timeouts": "$.timeout",
             "state": "$.state",
             "status": "$.status",
             "engine": "$.engine",
+            "engines": "$.engine",
             "version": "$.version",
+            "versions": "$.version",
             "size": "$.size",
+            "sizes": "$.size",
             "instance_type": "$.instance_type",
+            "name": "name",
+            "names": "name",
+            "region": "region",
+            "regions": "region",
+            "arn": "arn",
+            "arns": "arn",
         }
-        # Context-aware "type" mapping
-        if field_name == "type":
-            # For EC2 instances, "type" means instance_type
-            if intent.get("service") == "ec2" and intent.get("type") == "instance":
-                field = "$.instance_type"
-            # For Lambda, "type" could mean package_type
-            elif intent.get("service") == "lambda":
-                field = "$.package_type"
+        for field_name in raw_fields:
+            field_name = field_name.strip()
+            # Skip filler words
+            if field_name in ("them", "all", "it", "list"):
+                continue
+            # Context-aware "type" mapping
+            if field_name in ("type", "types"):
+                if intent.get("service") == "ec2" and intent.get("type") == "instance":
+                    field = "$.instance_type"
+                elif intent.get("service") == "lambda":
+                    field = "$.package_type"
+                else:
+                    field = "type"
             else:
-                field = "type"  # Resource type column
-        else:
-            field = field_map.get(field_name, field_name)
-
-        if field not in intent["select_fields"]:
-            intent["select_fields"].append(field)
+                field = field_map.get(field_name, field_name)
+            if field not in intent["select_fields"]:
+                intent["select_fields"].append(field)
 
 
 def _extract_ordering(q: str, qw: set, intent: dict) -> None:

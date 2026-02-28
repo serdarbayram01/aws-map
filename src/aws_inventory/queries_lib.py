@@ -85,10 +85,10 @@ def prepare_query(raw_sql, meta, account_id=None, params=None):
 
     # Replace scan filter placeholders (supports aliased versions)
     raw_sql = raw_sql.replace("{scan_filter}", scan_filter)
-    # Handle aliased scan filters like {scan_filter_u} → u.scan_id IN (...)
+    # Handle aliased scan filters like {scan_filter_u} → u.is_current=1 AND u.account_id='X'
     for m in re.finditer(r"\{scan_filter_(\w+)\}", raw_sql):
         alias = m.group(1)
-        aliased = scan_filter.replace("scan_id", f"{alias}.scan_id", 1)
+        aliased = re.sub(r'\b(is_current|account_id)\b', rf'{alias}.\1', scan_filter)
         raw_sql = raw_sql.replace(m.group(0), aliased)
 
     # Apply parameter defaults from header

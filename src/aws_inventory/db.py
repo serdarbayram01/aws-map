@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS resources (
     region TEXT,
     account_id TEXT,
     is_default INTEGER DEFAULT 0,
+    is_current INTEGER DEFAULT 1,
     details TEXT,
     tags TEXT,
     FOREIGN KEY (scan_id) REFERENCES scans(scan_id)
@@ -54,7 +55,44 @@ def get_connection(db_path=None):
     conn = sqlite3.connect(db_path, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA_SQL)
+    _migrate(conn)
     return conn
+
+
+def _migrate(conn):
+    """Add is_current column to existing databases.
+
+    Handles partial scans: finds latest scan per (account, service), not per account.
+    Safe for concurrent access: try/except on ALTER TABLE, immediate commit,
+    idempotent UPDATE (AND is_current=1).
+    """
+    cursor = conn.execute("PRAGMA table_info(resources)")
+    columns = {row[1] for row in cursor.fetchall()}
+    if "is_current" not in columns:
+        try:
+            conn.execute("ALTER TABLE resources ADD COLUMN is_current INTEGER DEFAULT 1")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        # Mark resource as NOT current if a newer scan exists for same account+service.
+        # This correctly handles partial scans (e.g., scan A has ec2+s3, scan B has lambda).
+        # AND is_current=1 makes it idempotent — concurrent processes find 0 rows.
+        conn.execute(
+            "UPDATE resources SET is_current=0 "
+            "WHERE is_current=1 AND EXISTS ("
+            "  SELECT 1 FROM resources r2 "
+            "  JOIN scans s2 ON r2.scan_id = s2.scan_id "
+            "  JOIN scans s1 ON resources.scan_id = s1.scan_id "
+            "  WHERE r2.account_id = resources.account_id "
+            "  AND r2.service = resources.service "
+            "  AND s2.timestamp > s1.timestamp)"
+        )
+        conn.commit()
+    # Always ensure the index exists (safe for both new and migrated DBs)
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_resources_current "
+        "ON resources(is_current, account_id, service)"
+    )
 
 
 def get_accounts(conn):
@@ -103,10 +141,20 @@ def account_label(conn, account_id):
     return account_id
 
 
-def store_scan(conn, result, profile=None, account_alias=None):
+def store_scan(conn, result, profile=None, account_alias=None, scanned_services=None):
     """Store a scan result in the database. Returns the scan_id."""
     scan_id = uuid.uuid4().hex[:16]
     meta = result["metadata"]
+    account_id = meta.get("account_id", "")
+
+    # Mark old resources as not current for the scanned services
+    if scanned_services:
+        placeholders = ",".join("?" * len(scanned_services))
+        conn.execute(
+            f"UPDATE resources SET is_current=0 "
+            f"WHERE account_id=? AND service IN ({placeholders}) AND is_current=1",
+            [account_id] + list(scanned_services)
+        )
 
     conn.execute(
         "INSERT INTO scans (scan_id, account_id, account_alias, profile, timestamp, "

@@ -8,6 +8,7 @@ import json
 import sys
 import time
 import click
+from click.shell_completion import get_completion_class
 from typing import Optional, List
 
 from aws_inventory import __version__
@@ -20,6 +21,9 @@ from aws_inventory.examples import (list_services as examples_list_services,
                                      list_questions as examples_list_questions,
                                      resolve_service as examples_resolve_service,
                                      search as examples_search, total_count as examples_total)
+from aws_inventory.completions import (complete_services, complete_regions, complete_profiles,
+                                       complete_query_names, complete_accounts, complete_config_keys,
+                                       complete_example_services, complete_example_numbers)
 from aws_inventory.formatter import format_output, export_file
 from aws_inventory.nlq import generate_sql
 from aws_inventory.queries_lib import list_named_queries, load_named_query, prepare_query, _parse_header
@@ -32,9 +36,9 @@ def print_progress(service: str, status: str) -> None:
 
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__, prog_name='awsmap')
-@click.option('--profile', '-p', default=None, help='AWS profile name to use')
-@click.option('--region', '-r', multiple=True, help='AWS region(s) to scan (can be specified multiple times)')
-@click.option('--services', '-s', multiple=True, help='Service(s) to scan (can be specified multiple times)')
+@click.option('--profile', '-p', default=None, shell_complete=complete_profiles, help='AWS profile name to use')
+@click.option('--region', '-r', multiple=True, shell_complete=complete_regions, help='AWS region(s) to scan (can be specified multiple times)')
+@click.option('--services', '-s', multiple=True, shell_complete=complete_services, help='Service(s) to scan (can be specified multiple times)')
 @click.option('--format', '-f', 'output_format', type=click.Choice(['json', 'csv', 'html']), default='html', help='Output format')
 @click.option('--output', '-o', 'output_file', default=None, help='Output file path (auto-generated if not specified)')
 @click.option('--workers', '-w', default=40, type=click.IntRange(min=1), help='Maximum parallel workers (default: 40)')
@@ -269,7 +273,8 @@ def main(
         try:
             cfg_db = get_config('db')
             conn = get_connection(cfg_db)
-            scan_id = store_scan(conn, result, profile=profile, account_alias=account_alias)
+            scan_id = store_scan(conn, result, profile=profile, account_alias=account_alias,
+                                scanned_services=result['metadata'].get('services_scanned_list'))
             db_path = cfg_db or '~/.awsmap/inventory.db'
             conn.close()
             if not quiet:
@@ -281,12 +286,12 @@ def main(
 
 @main.command()
 @click.argument('sql', required=False, default=None)
-@click.option('--name', '-n', 'query_name', default=None, help='Run a pre-built named query')
+@click.option('--name', '-n', 'query_name', default=None, shell_complete=complete_query_names, help='Run a pre-built named query')
 @click.option('--file', '-F', 'query_file', default=None, type=click.Path(exists=True), help='Run SQL from a file')
 @click.option('--list', '-l', 'list_queries', is_flag=True, help='List available pre-built queries')
-@click.option('--show', '-S', 'show_name', default=None, help='Show SQL of a named query without running it')
+@click.option('--show', '-S', 'show_name', default=None, shell_complete=complete_query_names, help='Show SQL of a named query without running it')
 @click.option('--param', '-P', 'params', multiple=True, help='Parameter for named query (key=value)')
-@click.option('--account', '-a', default=None, help='Scope to an account (name, alias, or ID)')
+@click.option('--account', '-a', default=None, shell_complete=complete_accounts, help='Scope to an account (name, alias, or ID)')
 @click.option('--db', default=None, help='Database path (default: ~/.awsmap/inventory.db)')
 @click.option('--format', '-f', 'fmt', type=click.Choice(['table', 'json', 'csv']), default='table', help='Output format')
 def query(sql, query_name, query_file, list_queries, show_name, params, account, db, fmt):
@@ -449,7 +454,7 @@ def query(sql, query_name, query_file, list_queries, show_name, params, account,
 
 @main.command()
 @click.argument('question', nargs=-1, required=True)
-@click.option('--account', '-a', default=None, help='Scope to an account (name, alias, profile, or ID)')
+@click.option('--account', '-a', default=None, shell_complete=complete_accounts, help='Scope to an account (name, alias, profile, or ID)')
 @click.option('--db', default=None, help='Database path (default: ~/.awsmap/inventory.db)')
 def ask(question, account, db):
     """Ask a question about your inventory in natural language.
@@ -520,8 +525,8 @@ def ask(question, account, db):
 
 
 @main.command()
-@click.argument('service', required=False, default=None)
-@click.argument('number', required=False, default=None, type=int)
+@click.argument('service', required=False, default=None, shell_complete=complete_example_services)
+@click.argument('number', required=False, default=None, type=int, shell_complete=complete_example_numbers)
 @click.option('--search', '-s', 'search_term', default=None, help='Search examples by keyword')
 @click.option('--db', default=None, help='Database path (default: ~/.awsmap/inventory.db)')
 def examples(service, number, search_term, db):
@@ -639,7 +644,7 @@ def config(ctx):
 
 
 @config.command('set')
-@click.argument('key')
+@click.argument('key', shell_complete=complete_config_keys)
 @click.argument('value')
 def config_set(key, value):
     """Set a configuration value."""
@@ -652,7 +657,7 @@ def config_set(key, value):
 
 
 @config.command('get')
-@click.argument('key')
+@click.argument('key', shell_complete=complete_config_keys)
 def config_get(key):
     """Get a configuration value."""
     value = get_config(key)
@@ -693,7 +698,7 @@ def config_list():
 
 
 @config.command('delete')
-@click.argument('key')
+@click.argument('key', shell_complete=complete_config_keys)
 def config_delete(key):
     """Delete a configuration value."""
     if get_config(key) is None:
@@ -701,6 +706,22 @@ def config_delete(key):
     else:
         delete_config(key)
         click.echo(f"  Deleted {key}")
+
+
+@main.command()
+@click.argument('shell', type=click.Choice(['bash', 'zsh', 'fish']))
+def completion(shell):
+    """Generate shell completion script.
+
+    \b
+    Activate for your shell:
+      eval "$(awsmap completion bash)"     # add to ~/.bashrc
+      eval "$(awsmap completion zsh)"      # add to ~/.zshrc
+      awsmap completion fish > ~/.config/fish/completions/awsmap.fish
+    """
+    comp_cls = get_completion_class(shell)
+    comp = comp_cls(main, {}, "awsmap", "_AWSMAP_COMPLETE")
+    click.echo(comp.source())
 
 
 if __name__ == '__main__':

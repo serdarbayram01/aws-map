@@ -460,6 +460,7 @@ def collect_all(
             'timestamp': time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime()),
             'scan_duration_seconds': round(elapsed_time, 2),
             'services_scanned': len(service_list),
+            'services_scanned_list': service_list,
             'regions_scanned': len(region_list),
             'resource_count': len(all_resources)
         },

@@ -376,6 +376,49 @@ awsmap
 awsmap -p staging    # Uses staging profile, but regions from config
 ```
 
+## Shell Completion
+
+awsmap supports tab completion for bash, zsh, and fish. Complete subcommands, service names, regions, AWS profiles, query names, account names, and config keys.
+
+```bash
+# Bash
+eval "$(awsmap completion bash)"     # add to ~/.bashrc
+
+# Zsh
+eval "$(awsmap completion zsh)"      # add to ~/.zshrc
+
+# Fish
+awsmap completion fish > ~/.config/fish/completions/awsmap.fish
+```
+
+**What gets completed:**
+
+| Context | Completions |
+|---------|-------------|
+| `awsmap <TAB>` | Subcommands: ask, config, completion, examples, query |
+| `awsmap -s <TAB>` | Service names (ec2, s3, lambda, ...) |
+| `awsmap -r <TAB>` | AWS region names |
+| `awsmap -p <TAB>` | AWS profile names from ~/.aws/credentials and ~/.aws/config |
+| `awsmap query -n <TAB>` | Pre-built query names |
+| `awsmap query -a <TAB>` | Account aliases, profiles, and IDs from the database |
+| `awsmap config set <TAB>` | Valid configuration keys |
+| `awsmap examples <TAB>` | Service names from the examples library |
+
+> **Important: Bash version requirement.** Shell completion requires **Bash 4.4 or newer**. macOS ships with Bash 3.2 (from 2007, frozen due to GPLv3 licensing) which is **not supported**. To fix this on macOS:
+>
+> ```bash
+> # Install modern Bash via Homebrew
+> brew install bash
+>
+> # Add it to allowed shells
+> sudo sh -c 'echo /opt/homebrew/bin/bash >> /etc/shells'
+>
+> # Set it as your default shell
+> chsh -s /opt/homebrew/bin/bash
+> ```
+>
+> Alternatively, macOS users can use **zsh** (the default shell since macOS Catalina) which works out of the box.
+
 ## Supported Services
 
 | Category | Services |
